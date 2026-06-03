@@ -54,9 +54,16 @@ export function SheetsPanel({ complaints, addToast, onUpdateComplaints }: Sheets
   });
 
   const [inputUrl, setInputUrl] = useState('');
+  const [isIframe, setIsIframe] = useState(false);
 
   // 1. Initialize Auth on mount
   useEffect(() => {
+    try {
+      setIsIframe(window.self !== window.top);
+    } catch (e) {
+      setIsIframe(true);
+    }
+
     const unsubscribe = initAuth(
       (currentUser, cachedToken) => {
         setUser(currentUser);
@@ -84,8 +91,10 @@ export function SheetsPanel({ complaints, addToast, onUpdateComplaints }: Sheets
         addToast('Conexão com Google autorizada com sucesso!', 'success');
       }
     } catch (err: any) {
-      console.error(err);
-      addToast('Falha na autenticação do Google.', 'error');
+      console.error('Sign in error details:', err);
+      const errMsg = err?.message || 'Erro desconhecido';
+      const errCode = err?.code || '';
+      addToast(`Falha na autenticação do Google: ${errCode ? `[${errCode}] ` : ''}${errMsg}`, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -171,6 +180,13 @@ export function SheetsPanel({ complaints, addToast, onUpdateComplaints }: Sheets
     const parsedId = parseSpreadsheetId(inputUrl);
     if (!parsedId) {
       addToast('Por favor, informe um link ou ID de planilha válido.', 'error');
+      return;
+    }
+
+    // A valid Google Sheets ID is typically much longer (usually 44 characters).
+    // If it's too short (like typing "Leme2026"), it's definitely an error.
+    if (parsedId.length < 20) {
+      addToast('O ID informado é inválido. Por favor, cole o link completo da sua Planilha Google no campo de texto.', 'error');
       return;
     }
 
@@ -324,26 +340,36 @@ export function SheetsPanel({ complaints, addToast, onUpdateComplaints }: Sheets
           </div>
 
           {!user ? (
-            /* Custom standard button aligned with Google design policy */
-            <button
-              onClick={handleLogin}
-              disabled={actionLoading}
-              className="gsi-material-button self-start lg:self-center cursor-pointer select-none hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
-            >
-              <div className="gsi-material-button-state"></div>
-              <div className="gsi-material-button-content-wrapper font-sans">
-                <div className="gsi-material-button-icon">
-                  <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style={{ display: 'block' }}>
-                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                    <path fill="none" d="M0 0h48v48H0z"></path>
-                  </svg>
+            isIframe ? (
+              <button
+                onClick={() => window.open(window.location.href, '_blank', 'noopener,noreferrer')}
+                className="p-2.5 bg-amber-600 hover:bg-amber-500 border border-amber-500/30 text-white rounded-xl text-xs transition-all cursor-pointer font-bold inline-flex items-center gap-1.5 shadow-md shadow-amber-900/10 hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <ExternalLink className="w-4 h-4 text-amber-200" />
+                Abrir em Nova Aba
+              </button>
+            ) : (
+              /* Custom standard button aligned with Google design policy */
+              <button
+                onClick={handleLogin}
+                disabled={actionLoading}
+                className="gsi-material-button self-start lg:self-center cursor-pointer select-none hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <div className="gsi-material-button-state"></div>
+                <div className="gsi-material-button-content-wrapper font-sans">
+                  <div className="gsi-material-button-icon">
+                    <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style={{ display: 'block' }}>
+                      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                      <path fill="none" d="M0 0h48v48H0z"></path>
+                    </svg>
+                  </div>
+                  <span className="gsi-material-button-contents font-semibold">{actionLoading ? 'Conectando...' : 'Conectar Conta Google'}</span>
                 </div>
-                <span className="gsi-material-button-contents font-semibold">{actionLoading ? 'Conectando...' : 'Conectar Conta Google'}</span>
-              </div>
-            </button>
+              </button>
+            )
           ) : (
             <div className="flex flex-wrap items-center gap-3 bg-neutral-900/60 p-3 rounded-xl border border-neutral-800">
               <div className="flex items-center gap-2.5">
@@ -393,8 +419,8 @@ export function SheetsPanel({ complaints, addToast, onUpdateComplaints }: Sheets
 
         {/* Content Section */}
         {!user ? (
-          <div className="p-8 border border-dashed border-neutral-800 rounded-xl mt-6 text-center">
-            <LockOverlay onClick={handleLogin} />
+          <div className="p-8 border border-neutral-800 rounded-xl mt-6 bg-neutral-950/40">
+            <LockOverlay onClick={handleLogin} isIframe={isIframe} />
           </div>
         ) : (
           <div className="mt-6 flex flex-col gap-6">
@@ -578,24 +604,60 @@ export function SheetsPanel({ complaints, addToast, onUpdateComplaints }: Sheets
   );
 }
 
-function LockOverlay({ onClick }: { onClick: () => void }) {
+function LockOverlay({ onClick, isIframe }: { onClick: () => void; isIframe: boolean }) {
+  const handleOpenNewTab = () => {
+    window.open(window.location.href, '_blank', 'noopener,noreferrer');
+  };
+
   return (
-    <div className="flex flex-col items-center py-6 text-center">
-      <div className="p-3 bg-neutral-900/80 border border-neutral-800 text-emerald-500/20 rounded-xl inline-flex items-center justify-center mb-4">
-        <FileSpreadsheet className="w-8 h-8 text-neutral-500" />
+    <div className="flex flex-col items-center py-6 text-center max-w-xl mx-auto">
+      <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full inline-flex items-center justify-center mb-4">
+        <FileSpreadsheet className="w-8 h-8 text-emerald-400" />
       </div>
-      <h4 className="text-sm font-extrabold text-neutral-200">Integração do Google Drive Desconectada</h4>
-      <p className="text-neutral-500 text-xs mt-1.5 mb-6 max-w-sm mx-auto leading-relaxed">
-        Você precisa conectar voluntariamente seu Google Drive para gerenciar planilha do portal ou criar novas instâncias de auditoria automática.
+      <h4 className="text-lg font-black text-white">Sincronização Ativa com Google Drive & Planilhas</h4>
+      <p className="text-neutral-400 text-xs sm:text-sm mt-2 mb-6 leading-relaxed">
+        Com esta ferramenta você pode gerar relatórios em tempo real, conectar dashboards do Looker Studio e atualizar o status de denúncias diretamente do Excel Online/Google Sheets.
       </p>
-      
-      <button
-        onClick={onClick}
-        className="px-5 py-2.5 bg-neutral-900 hover:bg-neutral-850 text-emerald-400 hover:text-emerald-300 font-bold border border-neutral-800 rounded-xl text-xs transition-all cursor-pointer inline-flex items-center gap-2"
-      >
-        <Link className="w-3.5 h-3.5 text-neutral-400" />
-        Vincular conta do Google
-      </button>
+
+      {isIframe ? (
+        <div className="w-full bg-amber-500/10 border border-amber-500/20 rounded-xl p-5 mb-6 text-left shadow-lg">
+          <div className="flex gap-3">
+            <span className="text-2xl mt-0.5 shrink-0">⚠️</span>
+            <div>
+              <h5 className="text-xs font-black text-amber-400 uppercase tracking-wider mb-1">
+                Restrição de Janela Incorporada (Iframe)
+              </h5>
+              <p className="text-neutral-300 text-xs leading-relaxed">
+                O Google de forma segura impede logins com sua conta dentro de ambientes incorporados (janelas de rascunho do editor lateral).
+                Para resolver:
+              </p>
+              <ol className="list-decimal list-inside text-neutral-400 text-[11px] mt-2 gap-1 flex flex-col font-medium">
+                <li>Clique no botão <strong className="text-white font-semibold">"Abrir Portal em Nova Aba"</strong> abaixo.</li>
+                <li>Na nova guia lateral, clique em <strong className="text-emerald-400 font-semibold">"Vincular conta do Google"</strong>.</li>
+                <li>Sua conta conectará perfeitamente, e sincronizará em toda a rede!</li>
+              </ol>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col sm:flex-row gap-2 justify-end">
+            <button
+              onClick={handleOpenNewTab}
+              className="px-5 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs transition-all cursor-pointer inline-flex items-center justify-center gap-2 shadow-lg shadow-amber-950/20 border border-amber-500/40 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Abrir Portal em Nova Aba
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={onClick}
+          className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold border border-emerald-500/40 rounded-xl text-xs transition-all cursor-pointer inline-flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-emerald-950/15"
+        >
+          <Link className="w-4 h-4 text-emerald-200" />
+          Vincular Conta Google e Começar
+        </button>
+      )}
     </div>
   );
 }
