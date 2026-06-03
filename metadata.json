@@ -1,0 +1,6 @@
+{
+  "name": "Civic Engagement Portal",
+  "description": "An interactive platform to raise awareness of community needs, improve cities, and promote civic engagement.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
