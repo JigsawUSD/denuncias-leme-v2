@@ -18,6 +18,27 @@ import { Complaint, ComplaintCategory } from '../types';
 import { CATEGORIES_MAP } from '../constants';
 import { CategoryIcon } from './CategoryIcon';
 
+// Helper to sanitize uploaded image filenames preventing script injections and path traversal exploits
+const sanitizeFilename = (name: string): string => {
+  if (!name) return 'arquivo_evidencia.jpg';
+  
+  const lastDotIdx = name.lastIndexOf('.');
+  const base = lastDotIdx !== -1 ? name.substring(0, lastDotIdx) : name;
+  const originalExt = lastDotIdx !== -1 ? name.substring(lastDotIdx + 1) : 'jpg';
+  
+  const cleanBase = base
+    .normalize('NFD') // separate accents from base characters
+    .replace(/[\u0300-\u036f]/g, '') // remove accent characters
+    .replace(/[^a-zA-Z0-9-_]/g, '_') // restrict to alphanumeric, dash, and underscores
+    .replace(/_+/g, '_') // condense multiple underscores
+    .substring(0, 50); // prevent oversized filenames
+
+  const cleanExt = originalExt.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 5);
+  const finalExt = ['jpg', 'jpeg', 'png', 'svg', 'gif', 'webp'].includes(cleanExt) ? cleanExt : 'jpg';
+
+  return `${cleanBase || 'evidencia'}.${finalExt}`;
+};
+
 interface ComplaintFormProps {
   onAddComplaint: (complaint: Complaint) => void;
   addToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -132,7 +153,7 @@ export function ComplaintForm({ onAddComplaint, addToast }: ComplaintFormProps) 
         bairro: bairro.trim(),
         rua: rua.trim(),
         fotoBase64: preview || undefined,
-        fotoNome: file?.name || undefined,
+        fotoNome: file ? sanitizeFilename(file.name) : undefined,
         nome: nome.trim(),
         contato: contato.trim() || undefined,
         anonimo,

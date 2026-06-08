@@ -69,17 +69,40 @@ export function ComplaintTracker({ complaints, addToast, onUpdateComplaints }: C
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPrompt, setShowAdminPrompt] = useState(false);
 
-  const handleAdminAuth = (e: React.FormEvent) => {
+  const handleAdminAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Default admin municipal code set to "leme2026"
-    if (adminPassword.trim() === 'leme2026') {
-      setIsAdminUnlocked(true);
-      localStorage.setItem('is_admin_unlocked', 'true');
-      setAdminPassword('');
-      setShowAdminPrompt(false);
-      addToast('Acesso administrativo autorizado com sucesso!', 'success');
-    } else {
-      addToast('Chave de acesso administrativa inválida.', 'error');
+    const typedPassword = adminPassword.trim();
+    
+    try {
+      // Calculate SHA-256 of typed password safely without external libraries
+      const encoder = new TextEncoder();
+      const data = encoder.encode(typedPassword);
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      
+      // Hashed representation of "Lemedenuncias2026!" is cc5d265255d008570399c6f895fe4fa2e694ea7358e370fbfdc11dc70f08ee44
+      if (hashHex === 'cc5d265255d008570399c6f895fe4fa2e694ea7358e370fbfdc11dc70f08ee44') {
+        setIsAdminUnlocked(true);
+        localStorage.setItem('is_admin_unlocked', 'true');
+        setAdminPassword('');
+        setShowAdminPrompt(false);
+        addToast('Acesso administrativo autorizado com sucesso!', 'success');
+      } else {
+        addToast('Chave de acesso administrativa inválida.', 'error');
+      }
+    } catch (err) {
+      console.error('Erro de validação criptográfica:', err);
+      // Fallback comparison in case crypto window APIs are blocked in sandbox/old frames
+      if (typedPassword === 'Lemedenuncias2026!') {
+        setIsAdminUnlocked(true);
+        localStorage.setItem('is_admin_unlocked', 'true');
+        setAdminPassword('');
+        setShowAdminPrompt(false);
+        addToast('Acesso administrativo autorizado com sucesso!', 'success');
+      } else {
+        addToast('Chave de acesso administrativa inválida.', 'error');
+      }
     }
   };
 

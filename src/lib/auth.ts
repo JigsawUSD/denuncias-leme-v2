@@ -16,6 +16,8 @@ let cachedAccessToken: string | null = null;
 
 export const clearSessionToken = () => {
   cachedAccessToken = null;
+  sessionStorage.removeItem('sheets_google_access_token');
+  sessionStorage.removeItem('sheets_google_access_token_time');
   localStorage.removeItem('sheets_google_access_token');
   localStorage.removeItem('sheets_google_access_token_time');
 };
@@ -25,9 +27,23 @@ export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
-  // Restore cached token if valid (less than 50 mins old)
-  const storedToken = localStorage.getItem('sheets_google_access_token');
-  const storedTimeStr = localStorage.getItem('sheets_google_access_token_time');
+  // Restore cached token from sessionStorage (or legacy localStorage fallback) if valid (less than 50 mins old)
+  let storedToken = sessionStorage.getItem('sheets_google_access_token');
+  let storedTimeStr = sessionStorage.getItem('sheets_google_access_token_time');
+  
+  if (!storedToken) {
+    storedToken = localStorage.getItem('sheets_google_access_token');
+    storedTimeStr = localStorage.getItem('sheets_google_access_token_time');
+    
+    // Migrate to sessionStorage and delete plaintext token from persistent localStorage
+    if (storedToken && storedTimeStr) {
+      sessionStorage.setItem('sheets_google_access_token', storedToken);
+      sessionStorage.setItem('sheets_google_access_token_time', storedTimeStr);
+      localStorage.removeItem('sheets_google_access_token');
+      localStorage.removeItem('sheets_google_access_token_time');
+    }
+  }
+
   const storedTime = storedTimeStr ? parseInt(storedTimeStr, 10) : 0;
   
   if (storedToken && Date.now() - storedTime < 50 * 60 * 1000) {
@@ -62,8 +78,13 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     }
 
     cachedAccessToken = credential.accessToken;
-    localStorage.setItem('sheets_google_access_token', cachedAccessToken);
-    localStorage.setItem('sheets_google_access_token_time', Date.now().toString());
+    sessionStorage.setItem('sheets_google_access_token', cachedAccessToken);
+    sessionStorage.setItem('sheets_google_access_token_time', Date.now().toString());
+    
+    // Purge any potentially lingering plaintext tokens from permanent localStorage
+    localStorage.removeItem('sheets_google_access_token');
+    localStorage.removeItem('sheets_google_access_token_time');
+    
     return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
     console.error('Sign in error:', error);
@@ -76,8 +97,20 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
 export const getAccessToken = async (): Promise<string | null> => {
   if (cachedAccessToken) return cachedAccessToken;
 
-  const storedToken = localStorage.getItem('sheets_google_access_token');
-  const storedTimeStr = localStorage.getItem('sheets_google_access_token_time');
+  let storedToken = sessionStorage.getItem('sheets_google_access_token');
+  let storedTimeStr = sessionStorage.getItem('sheets_google_access_token_time');
+  
+  if (!storedToken) {
+    storedToken = localStorage.getItem('sheets_google_access_token');
+    storedTimeStr = localStorage.getItem('sheets_google_access_token_time');
+    if (storedToken && storedTimeStr) {
+      sessionStorage.setItem('sheets_google_access_token', storedToken);
+      sessionStorage.setItem('sheets_google_access_token_time', storedTimeStr);
+      localStorage.removeItem('sheets_google_access_token');
+      localStorage.removeItem('sheets_google_access_token_time');
+    }
+  }
+
   const storedTime = storedTimeStr ? parseInt(storedTimeStr, 10) : 0;
   
   if (storedToken && Date.now() - storedTime < 50 * 60 * 1000) {
